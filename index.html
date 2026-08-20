@@ -3,22 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Stillness — Scroll Numerals</title>
-<meta name="description" content="Scroll-driven editorial numeral slider with a live control bar.">
-
-<!--
-  ─────────────────────────────────────────────────────────────────────────────
-  HOW TO ADD YOUR ASSETS
-  Every slide has one <figure class="media"> block. Inside it there is a
-  <div class="ph"> placeholder. Replace that placeholder with your own asset:
-
-      <img src="images/01.jpg" alt="">
-  or  <video src="video/01.mp4" autoplay muted loop playsinline></video>
-
-  Sizing/cropping is already handled — .media img / .media video are set to
-  width:100%; height:100%; object-fit:cover.
-  ─────────────────────────────────────────────────────────────────────────────
--->
+<title>Nicola Lanta — Reel</title>
+<meta name="description" content="Scroll-driven 3D cinematic chapter reel.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,24 +15,23 @@
 @property --wipe { syntax: '<number>'; inherits: true; initial-value: 1; }
 
 :root{
-  --num-size: min(17.7vw, 21.1vh);     /* numeral font-size (uniform for every item)      */
-  --num-stride: .94;                   /* vertical rhythm, in ems of --num-size            */
-  --num-lift: .0766em;                 /* optical: centre the cap height, not the em box   */
-  --num-ink: #fff;                     /* numeral colour (preset-dependent)                */
-  --num-line: rgba(255,255,255,.55);   /* outline colour                                   */
-  --num-squeeze: .728;                 /* horizontal compression of the display serif      */
-  --scrim: .46;                        /* darkening over the media */
-  --vignette: .55;
+  --num-size: min(17.7vw, 21.1vh);
+  --num-stride: .94;
+  --num-lift: .0766em;
+  --num-ink: #fff;
+  --num-line: rgba(255,255,255,.62);
+  --num-squeeze: .728;
+  --scrim: .58;
+  --vignette: .68;
   --pad-x: 32px;
-  --bar-bg: rgba(16,16,17,.72);
-  --hair: rgba(255,255,255,.10);
   --ease: cubic-bezier(.22,.61,.24,1);
   --serif: "Playfair Display", "Times New Roman", Georgia, serif;
   --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 *,*::before,*::after{ box-sizing:border-box; }
-html{ scroll-snap-type: y proximity; scrollbar-width:none; background:#0b0a09; }
+html{ scrollbar-width:none; background:#0b0a09; }
 html::-webkit-scrollbar{ width:0; height:0; }
 body{
   margin:0; background:#0b0a09; color:#fff;
@@ -57,9 +42,8 @@ body{
 button{ font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
 :focus-visible{ outline:1px solid rgba(255,255,255,.8); outline-offset:3px; border-radius:2px; }
 
-/* ─────────────────────── scroll track (drives it all) ─────────────────────── */
+/* ─────────────────── scroll track (drives the dolly) ─────────────────── */
 .track{ position:relative; z-index:0; }
-.track > section{ height:100svh; scroll-snap-align:start; }
 
 /* ───────────────────────────── stage ───────────────────────────── */
 .stage{
@@ -67,22 +51,43 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
   background:#0b0a09;
 }
 
-/* ── media layers ── */
-.media-stack{ position:absolute; inset:0; z-index:0; isolation:isolate; }
-.media{
-  position:absolute; inset:0; margin:0; overflow:hidden;
-  will-change:transform;
+/* ═══════════════════════ 3D depth stack ═══════════════════════
+   One .layer per video. JS drives translate3d Z + scale so the
+   camera dollies THROUGH the stack. No cards, no borders — every
+   layer is full-bleed media, overscanned so a receding layer never
+   uncovers the viewport edge.
+   ────────────────────────────────────────────────────────────── */
+.depth-stack{
+  position:absolute; inset:0; z-index:0;
+  perspective:1200px;
+  transform-style:preserve-3d;
 }
-.media-inner{
+.layer{
   position:absolute; inset:0;
   transform-origin:50% 50%;
-  will-change:transform;
+  backface-visibility:hidden;
 }
-.media img, .media video, .media .ph{
+.layer-inner{
+  /* overscan: the media is larger than the viewport, so a layer pushed
+     back by perspective still covers every edge */
+  position:absolute; inset:-11%;
+  /* cinematic media treatment — constant, so the filter is rasterised
+     once and cached rather than re-rendered every frame */
+  filter:contrast(1.12) saturate(.86) brightness(.94);
+}
+/* depth dimming rides on opacity, which the compositor handles alone */
+.layer-dim{
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  background:#070706; opacity:0;
+}
+.layer video, .layer .ph{
   position:absolute; inset:0; width:100%; height:100%;
   object-fit:cover; display:block;
 }
-/* placeholder look — swap the .ph div for your <img>/<video> */
+.layer video{ z-index:1; }
+.layer.no-video video{ display:none; }
+
+/* procedural placeholder — also the graceful fallback when a video 404s */
 .ph{
   background:
     radial-gradient(120% 90% at 22% 12%, rgba(255,255,255,.10), transparent 60%),
@@ -93,21 +98,34 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
   background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 1px, transparent 1px 26px);
 }
 .ph-tag{
-  position:absolute; right:22px; bottom:20px; z-index:2;
-  font-size:9.5px; letter-spacing:.16em; text-transform:uppercase;
-  color:rgba(255,255,255,.42);
-  border:1px solid rgba(255,255,255,.18); border-radius:999px;
-  padding:5px 11px; backdrop-filter:blur(4px);
+  position:absolute; left:50%; top:21%; transform:translateX(-50%); z-index:2;
+  font-family:var(--mono);
+  font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; white-space:nowrap;
+  color:rgba(255,255,255,.34);
+  border:1px solid rgba(255,255,255,.14); border-radius:999px;
+  padding:5px 12px;
 }
+.layer:not(.no-video) .ph-tag{ display:none; }
+
+/* one global scrim over the whole stack — never stacks up per layer */
 .scrim{
-  position:absolute; inset:0;
+  position:absolute; inset:0; z-index:1; pointer-events:none;
   background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.15) 34%, rgba(0,0,0,.35));
   opacity:var(--scrim);
-  transition:opacity .6s var(--ease);
+}
+
+/* chapter cut — a short tape-dip between project stacks */
+.cut-flash{
+  position:absolute; inset:0; z-index:2; pointer-events:none;
+  opacity:0; background:#080807;
+}
+.cut-flash::after{
+  content:""; position:absolute; left:0; right:0; top:50%; height:1px;
+  background:rgba(255,255,255,.5);
 }
 
 /* ── grain + vignette ── */
-.grain,.vignette{ position:absolute; inset:0; pointer-events:none; z-index:1; }
+.grain,.vignette{ position:absolute; inset:0; pointer-events:none; z-index:3; }
 .grain{
   opacity:.055; mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
@@ -115,13 +133,11 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
 .vignette{
   background:radial-gradient(115% 88% at 50% 46%, transparent 42%, rgba(0,0,0,.85) 100%);
   opacity:var(--vignette);
-  transition:opacity .6s var(--ease);
 }
 
-/* ── numerals ── */
+/* ── chapter numerals ── */
 .numerals{
-  position:absolute; inset:0; pointer-events:none; z-index:2;
-  transition:opacity .5s var(--ease);
+  position:absolute; inset:0; pointer-events:none; z-index:4;
   transform-style:preserve-3d;
   will-change:transform;
 }
@@ -133,12 +149,9 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
   will-change:transform,opacity;
 }
 .num-squeeze{ display:block; transform:translateY(calc(var(--num-lift) * -1)) scaleX(var(--num-squeeze)); transform-origin:50% 50%; }
-.num span.layer{ display:block; grid-area:1/1; }
+.num span.layer{ display:block; grid-area:1/1; position:static; inset:auto; }
 .num-stack{ display:grid; }
-.num .fill{
-  color:var(--num-ink);
-  text-shadow:0 6px 44px rgba(0,0,0,.42);
-}
+.num .fill{ color:var(--num-ink); text-shadow:0 6px 44px rgba(0,0,0,.42); }
 .num .out{
   color:transparent;
   -webkit-text-stroke:1.15px var(--num-line);
@@ -146,24 +159,13 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
 }
 
 /* ── editorial content block ── */
-.content-layer{ position:absolute; inset:0; pointer-events:none; z-index:4; }
+.content-layer{ position:absolute; inset:0; pointer-events:none; z-index:5; }
+/* CONTENT placement — bottom-left, permanently */
 .content{
-  position:absolute; left:var(--pad-x); top:37px; width:min(430px, 62vw);
+  position:absolute; left:var(--pad-x); bottom:56px; width:min(430px, 62vw);
   opacity:0; visibility:hidden; pointer-events:none;
 }
 .content.is-on{ opacity:1; visibility:visible; pointer-events:auto; }
-
-/* CONTENT placement */
-[data-pos="bottom-left"]  .content{ top:auto; bottom:56px; }
-[data-pos="bottom-right"] .content{ top:auto; bottom:56px; left:auto; right:var(--pad-x); text-align:right; }
-[data-pos="bottom-right"] .rule{ margin-left:auto; }
-[data-pos="centered"]     .content{ top:50%; left:50%; right:auto; bottom:auto; transform:translate(-50%,-50%); text-align:center; }
-[data-pos="centered"]     .rule{ margin-left:auto; margin-right:auto; }
-/* centred copy sits on top of the numerals, so the numerals step back */
-[data-pos="centered"] .numerals{ opacity:.38; }
-[data-pos="centered"] .content-layer{
-  background:radial-gradient(46% 30% at 50% 50%, rgba(0,0,0,.62), transparent 70%);
-}
 
 .content h1{
   font-family:var(--serif); font-weight:400;
@@ -206,144 +208,169 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
 }
 .content:not(.is-on) .reveal::after{ display:none; }
 
-/* ── dot rail (left) ── */
-.dots{
-  position:absolute; left:12px; top:50%; transform:translateY(-50%);
-  display:flex; flex-direction:column; gap:1.5px; z-index:5;
-  transition:opacity .45s var(--ease);
-}
-.dots[hidden]{ display:none; }
-.dots button{
-  width:16px; height:16px; display:grid; place-items:center;
-}
-.dots i{
-  display:block; width:7px; height:7px; border-radius:50%;
-  background:rgba(255,255,255,.45);
-  transition:width .4s var(--ease), height .4s var(--ease), background .4s var(--ease);
-}
-.dots button[aria-current="true"] i{ width:10px; height:10px; background:#fff; }
-.dots button:hover i{ background:rgba(255,255,255,.8); }
-
-/* ── progress rail (right, optional) ── */
+/* ── progress rail (right) — global position across the whole reel ── */
 .rail{
   position:absolute; right:26px; top:50%; transform:translateY(-50%);
-  display:flex; flex-direction:column; align-items:center; gap:14px; z-index:5;
+  display:flex; flex-direction:column; align-items:center; gap:14px; z-index:6;
 }
-.rail[hidden]{ display:none; }
-.rail-line{
-  position:relative; width:1px; height:30vh; background:rgba(255,255,255,.2);
-}
+.rail-line{ position:relative; width:1px; height:30vh; background:rgba(255,255,255,.2); }
 .rail-fill{
-  position:absolute; left:-.25px; top:0; width:1.5px; background:#fff;
-  height:0; transition:height .12s linear;
+  position:absolute; left:-.25px; top:0; width:1.5px; height:100%;
+  background:#fff;
+  transform:scaleY(0); transform-origin:50% 0;
 }
 .rail-idx{
   font-size:9.5px; letter-spacing:.22em; color:rgba(255,255,255,.62);
   writing-mode:vertical-rl; font-variant-numeric:tabular-nums;
 }
 
-/* ── optional inset border ── */
+/* ── inset border — always on ── */
 .frame{
   position:absolute; inset:14px; border:1px solid rgba(255,255,255,.28);
-  border-radius:3px; pointer-events:none; z-index:6;
+  border-radius:3px; pointer-events:none; z-index:7;
 }
-.frame[hidden]{ display:none; }
 
-/* ───────────────────────────── control bar ───────────────────────────── */
-.hud{
-  position:absolute; top:10px; left:50%; transform:translateX(-50%);
-  z-index:10; display:flex; align-items:stretch;
-  height:59px; padding:0 4px;
-  background:var(--bar-bg);
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:999px;
-  backdrop-filter:blur(22px) saturate(140%);
-  -webkit-backdrop-filter:blur(22px) saturate(140%);
-  box-shadow:0 12px 40px rgba(0,0,0,.4);
-  max-width:calc(100vw - 24px);
+/* ══════════════════════════ camcorder HUD ══════════════════════════
+   Viewfinder overlay: REC light, running timer, battery, framing
+   brackets and the scanline texture. Entirely self-contained.
+   ─────────────────────────────────────────────────────────────────── */
+.camcorder-hud{
+  position:fixed; inset:0; z-index:8;
+  pointer-events:none;
+  font-family:var(--mono);
+  --hud-pad:42px;
+  --hud-arm:20px;
+  --hud-ink:rgba(255,255,255,.82);
+  --hud-red:#ff3b30;
+  /* enlarged HUD readouts — tuned down per breakpoint below */
+  --rec-font:23px;   --rec-dot:18px;
+  --timer-font:30px;
+  --batt-w:66px; --batt-h:31px; --batt-border:3px; --batt-pad:4px; --batt-gap:4px;
+  --batt-cap-w:6px;  --batt-cap-h:15px;
 }
-.grp{
-  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-  gap:8px; padding:12px 16px 0; position:relative;
-}
-.grp + .grp::before{
-  content:""; position:absolute; left:0; top:50%; transform:translateY(-50%);
-  width:1px; height:22px; background:var(--hair);
-}
-.grp label, .grp .lbl{
-  font-size:9px; font-weight:400; letter-spacing:.15em; text-transform:uppercase;
-  color:rgba(255,255,255,.44); line-height:1; user-select:none;
-}
-.pill{
-  height:19px; padding:0 12px; border-radius:999px;
-  background:rgba(255,255,255,.11); color:#fff;
-  font-size:11.5px; font-weight:400; line-height:19px; white-space:nowrap;
-  transition:background .25s var(--ease), transform .25s var(--ease);
-}
-.pill:hover{ background:rgba(255,255,255,.19); }
-.pill:active{ transform:scale(.96); }
+.camcorder-hud *{ pointer-events:none; }
 
-.sw{ position:relative; width:37px; height:19px; flex:none; }
-.sw input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; z-index:2; }
-.sw i{
-  position:absolute; inset:0; border-radius:999px;
-  background:rgba(255,255,255,.16);
-  transition:background .3s var(--ease);
+/* ── REC indicator (top-left) ── */
+.hud-top-left{
+  position:absolute; left:var(--hud-pad); top:var(--hud-pad);
+  display:flex; align-items:center;
 }
-.sw i::after{
-  content:""; position:absolute; top:2px; left:2px;
-  width:15px; height:15px; border-radius:50%;
+.rec-indicator{
+  display:flex; align-items:center; gap:10px;
+  font-size:var(--rec-font); font-weight:700; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--hud-ink);
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
+}
+.rec-dot{
+  width:var(--rec-dot); height:var(--rec-dot); border-radius:50%;
+  background:var(--hud-red);
+  animation:rec-pulse 1.4s var(--ease) infinite;
+}
+@keyframes rec-pulse{
+  0%, 54% { opacity:1;   box-shadow:0 0 12px rgba(255,59,48,.55); }
+  74%     { opacity:.34; box-shadow:0 0 0 rgba(255,59,48,0); }
+  100%    { opacity:1;   box-shadow:0 0 12px rgba(255,59,48,.55); }
+}
+
+/* ── "Nicola Lanta" page link + battery (top-right) ──
+   Styled identically to .rec-indicator — same font-size, weight,
+   letter-spacing and text-shadow — so it reads as a matching HUD
+   readout in the accent red. A real link to a separate page, not an
+   overlay trigger. ── */
+.hud-top-right{
+  position:absolute; right:var(--hud-pad); top:var(--hud-pad);
+  display:flex; align-items:center; gap:28px;
+}
+.hud-page-link{
+  font-family:var(--mono); font-size:var(--rec-font); font-weight:700;
+  letter-spacing:.2em; text-transform:uppercase; white-space:nowrap;
+  color:var(--hud-red); text-decoration:none;
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
+  opacity:.94;
+  transition:opacity .3s var(--ease), color .3s var(--ease);
+}
+.camcorder-hud .hud-page-link{ pointer-events:auto; }
+.hud-page-link:hover, .hud-page-link:focus-visible{ opacity:1; color:#ff6a60; }
+
+/* Change data-level to 3 / 2 / 1 / 0 and that many segments stay lit. */
+.battery-indicator{
+  display:flex; align-items:center; gap:4px;
+  opacity:.9;
+}
+.battery-body{
+  display:flex; align-items:stretch; gap:var(--batt-gap);
+  width:var(--batt-w); height:var(--batt-h); padding:var(--batt-pad);
+  border:var(--batt-border) solid rgba(255,255,255,.6); border-radius:3px;
+}
+.battery-segment{ flex:1; background:rgba(255,255,255,.16); }
+.battery-indicator[data-level="1"] .battery-segment:nth-child(-n+1),
+.battery-indicator[data-level="2"] .battery-segment:nth-child(-n+2),
+.battery-indicator[data-level="3"] .battery-segment:nth-child(-n+3),
+.battery-indicator[data-level="4"] .battery-segment:nth-child(-n+4){
+  background:rgba(255,255,255,.8);
+}
+.battery-cap{
+  width:var(--batt-cap-w); height:var(--batt-cap-h); border-radius:0 2px 2px 0;
   background:rgba(255,255,255,.6);
-  transition:transform .3s var(--ease), background .3s var(--ease);
-}
-.sw input:checked + i{ background:#fff; }
-.sw input:checked + i::after{ transform:translateX(18px); background:#111; }
-.sw input:focus-visible + i{ outline:1px solid rgba(255,255,255,.8); outline-offset:3px; }
-
-/* click ripple on the control bar */
-.ripple{
-  position:absolute; border-radius:50%; pointer-events:none;
-  border:1px solid rgba(255,255,255,.7);
-  animation:ripple .6s var(--ease) forwards;
-}
-@keyframes ripple{
-  from{ width:8px; height:8px; opacity:.9; transform:translate(-50%,-50%); }
-  to  { width:86px; height:86px; opacity:0; transform:translate(-50%,-50%); }
 }
 
-
-/* ── presets ── */
-.stage[data-preset="cinematic"]{ --scrim:.58; --vignette:.68; --num-line:rgba(255,255,255,.62); }
-.stage[data-preset="cinematic"] .media-inner{ filter:contrast(1.12) saturate(.86) brightness(.94); }
-.stage[data-preset="minimal"]{ --scrim:1; --vignette:.22; --num-ink:#191c1f; --num-line:rgba(20,22,25,.5); }
-/* Minimal lifts the media so the dark numerals read, but keeps the copy area shaded */
-.stage[data-preset="minimal"] .scrim{
-  background:
-    linear-gradient(180deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,.08) 24%, rgba(0,0,0,0) 42%),
-    linear-gradient(180deg, rgba(255,255,255,.2) 0%, rgba(255,255,255,.34) 100%);
+/* ── recording timer (bottom-right) ── */
+.recording-timer{
+  position:absolute; right:var(--hud-pad); bottom:var(--hud-pad);
+  font-size:var(--timer-font); font-weight:500; letter-spacing:.1em;
+  font-variant-numeric:tabular-nums;
+  color:rgba(255,255,255,.68);
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
 }
-.stage[data-preset="minimal"] .media-inner{ filter:brightness(1.12) saturate(.92); }
-.stage[data-preset="minimal"] .num .fill{ text-shadow:0 4px 30px rgba(255,255,255,.18); }
+
+/* ── viewfinder brackets — sit on the corners of the existing .frame ── */
+.viewfinder{ position:absolute; inset:14px; }
+.viewfinder-corner{
+  position:absolute; width:var(--hud-arm); height:var(--hud-arm);
+  border:1px solid rgba(255,255,255,.72);
+}
+.viewfinder-corner.tl{ top:0;    left:0;  border-right:0; border-bottom:0; }
+.viewfinder-corner.tr{ top:0;    right:0; border-left:0;  border-bottom:0; }
+.viewfinder-corner.bl{ bottom:0; left:0;  border-right:0; border-top:0;    }
+.viewfinder-corner.br{ bottom:0; right:0; border-left:0;  border-top:0;    }
+
+/* ── scanlines / CRT texture ── */
+.scanlines{
+  position:absolute; inset:0; opacity:.55;
+  background:repeating-linear-gradient(180deg,
+    rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
+}
+.scanlines::after{
+  content:""; position:absolute; left:0; right:0; top:0; height:26%;
+  background:linear-gradient(180deg,
+    transparent, rgba(255,255,255,.05) 48%, transparent);
+  will-change:transform;
+  animation:head-drift 9s linear infinite;
+}
+/* transform, not `top` — `top` relayouts the full-screen band every frame */
+@keyframes head-drift{
+  from{ transform:translateY(-110%); }
+  to  { transform:translateY(400%); }
+}
 
 /* ── responsive ── */
 @media (max-width: 900px){
   :root{ --pad-x:20px; --num-size:min(23vw, 17vh); }
-  .hud{
-    height:55px; left:8px; right:8px; transform:none; max-width:none;
-    overflow-x:auto; overflow-y:hidden; justify-content:flex-start; scrollbar-width:none;
-    -webkit-mask-image:linear-gradient(90deg, #000 88%, transparent);
-            mask-image:linear-gradient(90deg, #000 88%, transparent);
-    scroll-snap-type:x proximity;
-  }
-  .hud::-webkit-scrollbar{ display:none; }
-  .grp{ padding:11px 12px 0; scroll-snap-align:center; }
-  .grp .lbl, .grp label{ font-size:8.5px; }
-  [data-pos="top-left"] .content{ top:auto; bottom:104px; }
   .content{ width:min(430px, 80vw); }
   .rail{ right:14px; }
+  .camcorder-hud{
+    --hud-pad:32px; --hud-arm:12px;
+    --rec-font:17px; --rec-dot:14px;
+    --timer-font:22px;
+    --batt-w:50px; --batt-h:23px; --batt-border:2.2px; --batt-pad:3.2px; --batt-gap:3.2px;
+    --batt-cap-w:4px; --batt-cap-h:10px;
+  }
+  .rec-indicator{ gap:7px; letter-spacing:.16em; }
+  .hud-top-right{ gap:18px; }
+  .depth-stack{ perspective:900px; }
   /* lift the copy off the numerals */
   .stage::before{
-    content:""; position:absolute; inset:38% 0 0 0; z-index:3; pointer-events:none;
+    content:""; position:absolute; inset:38% 0 0 0; z-index:4; pointer-events:none;
     background:linear-gradient(180deg, transparent, rgba(0,0,0,.5) 55%, rgba(0,0,0,.82));
   }
 }
@@ -351,334 +378,468 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
   :root{ --num-size:min(26vw, 16vh); }
   .content h1{ font-size:26px; }
   .content p{ font-size:13.5px; }
+  .camcorder-hud{
+    --rec-font:13px; --rec-dot:11px;
+    --timer-font:17px;
+    --batt-w:38px; --batt-h:18px; --batt-border:1.6px; --batt-pad:2.4px; --batt-gap:2.4px;
+    --batt-cap-w:3px; --batt-cap-h:8px;
+  }
+  .hud-top-right{ gap:12px; }
 }
 
 @media (prefers-reduced-motion: reduce){
   .content.is-on .reveal{ animation-duration:.01s; }
+  .rec-dot{ animation:none; opacity:1; box-shadow:0 0 12px rgba(255,59,48,.55); }
+  .scanlines::after{ animation:none; display:none; }
 }
-</style>
 
-<noscript><style>
-  /* Without JS the stack cannot animate — show the first slide as a static poster. */
-  .num{ opacity:0; }
-  .num[data-i="0"]{ opacity:1; transform:translate(-50%,-50%); }
-  .content.is-on .reveal{ animation:none; }
-</style></noscript>
+</style>
 </head>
 
 <body>
 
-<main class="stage" id="stage" data-preset="custom" data-pos="top-left">
+<main class="stage" id="stage">
 
-  <!-- ══ media ══ -->
-  <div class="media-stack" id="mediaStack">
+  <!-- video layers are generated into here -->
+  <div class="depth-stack" id="depthStack"></div>
 
-    <figure class="media" data-i="0"><div class="media-inner">
-      <!-- REPLACE ↓ with <img src="…" alt=""> or <video src="…" autoplay muted loop playsinline></video> -->
-      <div class="ph" style="--ph1:#6b6154;--ph2:#37312a;--ph3:#141210"><span class="ph-tag">Slide 01 · media</span></div>
-    </div><div class="scrim"></div></figure>
-
-    <figure class="media" data-i="1"><div class="media-inner">
-      <div class="ph" style="--ph1:#7d6f61;--ph2:#42392f;--ph3:#17140f"><span class="ph-tag">Slide 02 · media</span></div>
-    </div><div class="scrim"></div></figure>
-
-    <figure class="media" data-i="2"><div class="media-inner">
-      <div class="ph" style="--ph1:#6a6b66;--ph2:#33342f;--ph3:#111211"><span class="ph-tag">Slide 03 · media</span></div>
-    </div><div class="scrim"></div></figure>
-
-    <figure class="media" data-i="3"><div class="media-inner">
-      <div class="ph" style="--ph1:#867a6b;--ph2:#463d33;--ph3:#171310"><span class="ph-tag">Slide 04 · media</span></div>
-    </div><div class="scrim"></div></figure>
-
-    <figure class="media" data-i="4"><div class="media-inner">
-      <div class="ph" style="--ph1:#7a7168;--ph2:#3b352e;--ph3:#131110"><span class="ph-tag">Slide 05 · media</span></div>
-    </div><div class="scrim"></div></figure>
-
-  </div>
-
+  <div class="scrim" aria-hidden="true"></div>
+  <div class="cut-flash" id="cutFlash" aria-hidden="true"></div>
   <div class="grain" aria-hidden="true"></div>
   <div class="vignette" aria-hidden="true"></div>
 
-  <!-- ══ numerals ══ -->
-  <div class="numerals" id="numerals" aria-hidden="true">
-    <div class="num" data-i="0" data-words="ONE"   data-numbers="01" data-roman="I"></div>
-    <div class="num" data-i="1" data-words="TWO"   data-numbers="02" data-roman="II"></div>
-    <div class="num" data-i="2" data-words="THREE" data-numbers="03" data-roman="III"></div>
-    <div class="num" data-i="3" data-words="FOUR"  data-numbers="04" data-roman="IV"></div>
-    <div class="num" data-i="4" data-words="FIVE"  data-numbers="05" data-roman="V"></div>
+  <!-- chapter numerals are generated into here -->
+  <div class="numerals" id="numerals" aria-hidden="true"></div>
+
+  <!-- ══ editorial copy — text swaps on chapter change ══ -->
+  <div class="content-layer">
+    <article class="content is-on" id="chapterCopy">
+      <h1 class="reveal" id="chapterTitle"></h1>
+      <div class="rule-wrap reveal"><div class="rule"></div></div>
+      <p class="reveal" id="chapterDesc"></p>
+      <div class="cta-wrap reveal"><a class="cta" href="#">View project</a></div>
+    </article>
   </div>
 
-  <!-- ══ editorial copy ══ -->
-  <div class="content-layer" id="contentLayer">
-
-    <article class="content is-on" data-i="0">
-      <h1 class="reveal">Stillness has a shape.</h1>
-      <div class="rule-wrap reveal"><div class="rule"></div></div>
-      <p class="reveal">Every room tells a story before a word is spoken. Let the silence settle — that’s where the space begins to breathe.</p>
-      <div class="cta-wrap reveal"><a class="cta" href="#">Explore now</a></div>
-    </article>
-
-    <article class="content" data-i="1">
-      <h1 class="reveal">Let it move you.</h1>
-      <div class="rule-wrap reveal"><div class="rule"></div></div>
-      <p class="reveal">Light fabric, soft light, a room that breathes with the wind. Some spaces don’t ask to be still.</p>
-      <div class="cta-wrap reveal"><a class="cta" href="#">Explore now</a></div>
-    </article>
-
-    <article class="content" data-i="2">
-      <h1 class="reveal">Cooking is a rhythm.</h1>
-      <div class="rule-wrap reveal"><div class="rule"></div></div>
-      <p class="reveal">Steam, motion, the quiet clatter of a knife on stone. This is where the day slows down.</p>
-      <div class="cta-wrap reveal"><a class="cta" href="#">Explore now</a></div>
-    </article>
-
-    <article class="content" data-i="3">
-      <h1 class="reveal">Morning, unhurried.</h1>
-      <div class="rule-wrap reveal"><div class="rule"></div></div>
-      <p class="reveal">A room built around light and quiet — where the day starts slow.</p>
-      <div class="cta-wrap reveal"><a class="cta" href="#">Explore now</a></div>
-    </article>
-
-    <article class="content" data-i="4">
-      <h1 class="reveal">Between rooms</h1>
-      <div class="rule-wrap reveal"><div class="rule"></div></div>
-      <p class="reveal">Wood, stone, and soft light guide every step.</p>
-      <div class="cta-wrap reveal"><a class="cta" href="#">Explore now</a></div>
-    </article>
-
-  </div>
-
-  <!-- ══ indicators ══ -->
-  <nav class="dots" id="dots" aria-label="Slides"></nav>
-
-  <div class="rail" id="rail" hidden>
+  <div class="rail" id="rail">
     <div class="rail-line"><div class="rail-fill" id="railFill"></div></div>
-    <div class="rail-idx" id="railIdx">01 — 05</div>
+    <div class="rail-idx" id="railIdx">01 — 01</div>
   </div>
 
-  <div class="frame" id="frame" hidden aria-hidden="true"></div>
-
-  <!-- ══ control bar ══ -->
-  <header class="hud" id="hud">
-    <div class="grp">
-      <span class="lbl">Preset</span>
-      <button class="pill" id="presetBtn" aria-label="Cycle preset">Custom</button>
-    </div>
-    <div class="grp">
-      <span class="lbl">Title</span>
-      <button class="pill" id="titleBtn" aria-label="Cycle numeral style">Words</button>
-    </div>
-    <div class="grp">
-      <span class="lbl">Content</span>
-      <button class="pill" id="contentBtn" aria-label="Cycle content position">Top-Left</button>
-    </div>
-    <div class="grp">
-      <label class="lbl" for="swZoom">Zoom</label>
-      <span class="sw"><input type="checkbox" id="swZoom"><i></i></span>
-    </div>
-    <div class="grp">
-      <label class="lbl" for="swDots">Dots</label>
-      <span class="sw"><input type="checkbox" id="swDots" checked><i></i></span>
-    </div>
-    <div class="grp">
-      <label class="lbl" for="swRail">Rail</label>
-      <span class="sw"><input type="checkbox" id="swRail"><i></i></span>
-    </div>
-    <div class="grp">
-      <label class="lbl" for="swBorder">Border</label>
-      <span class="sw"><input type="checkbox" id="swBorder"><i></i></span>
-    </div>
-  </header>
+  <div class="frame" aria-hidden="true"></div>
 
 </main>
 
-<div class="track" id="track" aria-hidden="true">
-  <section></section><section></section><section></section><section></section><section></section>
+<!-- ══════════════════════ camcorder HUD ══════════════════════
+     aria-hidden sits on the decorative pieces individually, not on this
+     wrapper — the "NICOLA LANTA" page link inside it is a real
+     interactive control and must stay reachable by assistive tech. -->
+<div class="camcorder-hud">
+  <div class="hud-top-left">
+    <div class="rec-indicator" aria-hidden="true"><span class="rec-dot"></span>REC</div>
+  </div>
+
+  <div class="hud-top-right">
+    <a class="hud-page-link" href="about.html">Nicola Lanta</a>
+
+    <div class="battery-indicator" data-level="4" aria-hidden="true">
+      <div class="battery-body">
+        <span class="battery-segment"></span>
+        <span class="battery-segment"></span>
+        <span class="battery-segment"></span>
+        <span class="battery-segment"></span>
+      </div>
+      <div class="battery-cap"></div>
+    </div>
+  </div>
+
+  <div class="recording-timer" id="recTimer" aria-hidden="true">00:00:00</div>
+
+  <div class="viewfinder" aria-hidden="true">
+    <span class="viewfinder-corner tl"></span>
+    <span class="viewfinder-corner tr"></span>
+    <span class="viewfinder-corner bl"></span>
+    <span class="viewfinder-corner br"></span>
+  </div>
+
+  <div class="scanlines" aria-hidden="true"></div>
 </div>
+
+<div class="track" id="track" aria-hidden="true"></div>
 
 <script>
 (() => {
-  const N = 5;
-  const stage   = document.getElementById('stage');
-  const nums    = [...document.querySelectorAll('.num')];
-  const medias  = [...document.querySelectorAll('.media')];
-  const inners  = [...document.querySelectorAll('.media-inner')];
-  const blocks  = [...document.querySelectorAll('.content')];
-  const numerals= document.getElementById('numerals');
-  const dotsNav = document.getElementById('dots');
-  const swZoom  = document.getElementById('swZoom');
-  const rail    = document.getElementById('rail');
-  const railFill= document.getElementById('railFill');
-  const railIdx = document.getElementById('railIdx');
-  const frame   = document.getElementById('frame');
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+'use strict';
 
-  /* ── numeral markup: a filled layer over an outlined layer ── */
-  const TITLES = ['words','numbers','roman'];
-  const TITLE_LABEL = { words:'Words', numbers:'Numbers', roman:'Roman' };
-  let titleMode = 'words';
+/* ═══════════════════════════════════════════════════════════════════
+   1 · CONTENT — the only thing you edit.
 
+   Add or remove chapters, add or remove videos inside a chapter: the
+   depth maths below derives everything (fractional depths, scroll
+   length, rail, numerals) from this array. Nothing else to touch.
+   ═══════════════════════════════════════════════════════════════════ */
+const chapters = [
+  {
+    title: "Adidas",
+    description: "Edit for the AS Roma 25/26 kit launch — cut, grade pass and finishing for the campaign release.",
+    videos: [
+      "videos/adidas-01.mp4",
+      "videos/adidas-02.mp4",
+      "videos/adidas-03.mp4"
+    ]
+  },
+  {
+    title: "Billboard Italy",
+    description: "Videomaker and editor across Billboard Italy's live events, including nights hosted by Adidas and AWLAB.",
+    videos: [
+      "videos/billboard-01.mp4",
+      "videos/billboard-02.mp4"
+    ]
+  },
+  {
+    title: "12AM Campaign",
+    description: "Direction, final edit and sound design on the brand's street-fashion short films.",
+    videos: [
+      "videos/12am-01.mp4",
+      "videos/12am-02.mp4",
+      "videos/12am-03.mp4"
+    ]
+  },
+  {
+    title: "THIR$TY × D.A.W.G.",
+    description: "The complete merch-launch campaign for the collective and the brand — direction, filming, final cut.",
+    videos: [
+      "videos/thirsty-01.mp4",
+      "videos/thirsty-02.mp4"
+    ]
+  },
+  {
+    title: "Inter FC",
+    description: "Christmas in the Making — production and filming through to the entire edit.",
+    videos: [
+      "videos/inter-01.mp4",
+      "videos/inter-02.mp4"
+    ]
+  },
+  {
+    title: "Illy Caffè",
+    description: "Coffee B — live-action production, filming and post, from concept to the final cut.",
+    videos: [
+      "videos/illy-01.mp4",
+      "videos/illy-02.mp4"
+    ]
+  }
+];
+
+/* ═══════════════════════════════════════════════════════════════════
+   2 · TUNING — feel, not content.
+   ═══════════════════════════════════════════════════════════════════ */
+const SPAN          = 0.86;   /* share of a chapter slot spent traversing its
+                                 videos; the remaining 0.14 is the chapter cut */
+const PERSP         = 1200;   /* must match .depth-stack perspective          */
+const FAR_UNIT      = 240;    /* px pushed back per unit of depth ahead       */
+const NEAR_UNIT     = 620;    /* px pulled toward camera per unit passed      */
+const NEAR_EASE     = 1.0;    /* 1 = responds the instant a layer is passed   */
+const FADE_OUT      = 0.40;   /* depth over which a passed layer fades away   */
+const DIM_DEPTH     = 0.9;    /* depth at which a layer reaches full dimming  */
+const DIM_FLOOR     = 0.62;   /* darkest a receding layer gets                */
+const CULL_RANGE    = 1.05;   /* beyond this a layer is hidden entirely       */
+const PLAY_RANGE    = 0.85;   /* videos outside this are paused               */
+const LOAD_RANGE    = 1.7;    /* src is not attached until this close         */
+const SCROLL_UNIT_VH= 125;    /* viewport heights of scroll per depth unit    */
+const TAU           = 52;     /* inertia time constant, ms — higher = heavier */
+const SHOW_LABELS   = true;   /* placeholder captions when a video is missing */
+
+/* ═══════════════════════════════════════════════════════════════════
+   3 · BUILD — flatten the data into one depth-sorted layer list.
+   ═══════════════════════════════════════════════════════════════════ */
+const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+const pad2  = n => String(n).padStart(2,'0');
+
+const stack    = document.getElementById('depthStack');
+const numerals = document.getElementById('numerals');
+const railFill = document.getElementById('railFill');
+const railIdx  = document.getElementById('railIdx');
+const cutFlash = document.getElementById('cutFlash');
+const copyEl   = document.getElementById('chapterCopy');
+const titleEl  = document.getElementById('chapterTitle');
+const descEl   = document.getElementById('chapterDesc');
+const trackEl  = document.getElementById('track');
+const reduced  = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const CH = chapters.length;
+
+/* layers[]: one entry per video, carrying its absolute position on the
+   dolly axis. Chapter c owns axis positions [c, c+1]; its videos are
+   spread across [c, c+SPAN] at evenly spaced fractional depths. */
+const layers = [];
+chapters.forEach((chapter, c) => {
+  const n = chapter.videos.length;
+  chapter.videos.forEach((src, i) => {
+    const depth = n > 1 ? i / (n - 1) : 0;      /* 0 … 1 within the chapter */
+    layers.push({ chapter: c, index: i, count: n, depth, src, z: c + depth * SPAN });
+  });
+});
+layers.sort((a, b) => a.z - b.z);
+
+const TOTAL   = layers.length;
+const CAM_MAX = layers[TOTAL - 1].z;
+
+/* deterministic placeholder palette — also the video-failure fallback */
+function placeholderVars(c, i){
+  const hue = (c * 47 + 26) % 360;
+  const l   = 40 - i * 4;
+  return `--ph1:hsl(${hue} 12% ${l}%);` +
+         `--ph2:hsl(${hue} 14% ${(l * 0.48).toFixed(1)}%);` +
+         `--ph3:hsl(${(hue + 10) % 360} 16% ${(l * 0.2).toFixed(1)}%)`;
+}
+
+layers.forEach(L => {
+  const el = document.createElement('div');
+  el.className = 'layer no-video';               /* placeholder until a video loads */
+  el.innerHTML =
+    '<div class="layer-inner">' +
+      '<div class="ph" style="' + placeholderVars(L.chapter, L.index) + '">' +
+        (SHOW_LABELS
+          ? '<span class="ph-tag">' + chapters[L.chapter].title + ' · ' +
+            pad2(L.index + 1) + ' / ' + pad2(L.count) + '</span>'
+          : '') +
+      '</div>' +
+      '<video muted loop playsinline preload="none"></video>' +
+      '<div class="layer-dim"></div>' +
+    '</div>';
+
+  L.el    = el;
+  L.dim   = el.querySelector('.layer-dim');
+  L.video = el.querySelector('video');
+  L.zi    = null;
+  L.attached = false;
+  L.failed   = false;
+  L.playing  = false;
+  L.visible  = true;
+
+  /* graceful fallback: a missing or undecodable file just leaves the
+     procedural placeholder in place */
+  L.video.addEventListener('error', () => { L.failed = true; el.classList.add('no-video'); });
+  L.video.addEventListener('loadeddata', () => { if (!L.failed) el.classList.remove('no-video'); });
+
+  stack.appendChild(el);
+});
+
+/* chapter numerals — same stacked fill/outline treatment as before,
+   now set to the chapter title instead of a "01" index */
+chapters.forEach((chapter, c) => {
+  const n = document.createElement('div');
+  n.className = 'num';
+  n.innerHTML = '<span class="num-squeeze"><span class="num-stack">' +
+                '<span class="layer out"></span><span class="layer fill"></span></span></span>';
+  const t = chapter.title;
+  n.querySelector('.fill').textContent = t;
+  n.querySelector('.out').textContent  = t;
+  numerals.appendChild(n);
+});
+const nums = [...numerals.querySelectorAll('.num')];
+
+/* a hidden, text-less probe carries the *base* --num-size for this
+   breakpoint — kept separate from the real numerals because those get
+   scaled down per-title by fitNumerals() below, and the vertical rhythm
+   (stride) must stay the same regardless of which title is longest */
+const sizeProbe = document.createElement('div');
+sizeProbe.className = 'num';
+sizeProbe.style.cssText = 'visibility:hidden; position:fixed; left:0; top:0;';
+document.body.appendChild(sizeProbe);
+
+/* measured once, not every frame — reading computed style per tick forced
+   a style/layout flush that alone cost more than the whole render */
+let stride = 0;
+function measure(){
+  const cs = getComputedStyle(sizeProbe);
+  stride = parseFloat(cs.fontSize) * (parseFloat(cs.getPropertyValue('--num-stride')) || .94);
+}
+measure();
+
+/* long titles ("THIR$TY × D.A.W.G.") would otherwise blow past the
+   viewport at the numeral's full display size — shrink just enough per
+   title to fit a comfortable max width, leaving short ones untouched */
+function fitNumerals(){
+  const maxW = Math.min(innerWidth * 0.88, 1600);
   nums.forEach(n => {
-    n.innerHTML = '<span class="num-squeeze"><span class="num-stack">' +
-                  '<span class="layer out"></span><span class="layer fill"></span></span></span>';
+    n.style.removeProperty('--num-size');
+    const box = n.querySelector('.num-squeeze');
+    const natural = box.getBoundingClientRect().width;
+    if (natural > maxW){
+      const base = parseFloat(getComputedStyle(n).fontSize);
+      n.style.setProperty('--num-size', (base * (maxW / natural)).toFixed(2) + 'px');
+    }
   });
-  function paintTitles(){
-    nums.forEach(n => {
-      const t = n.dataset[titleMode];
-      n.querySelector('.fill').textContent = t;
-      n.querySelector('.out').textContent  = t;
-    });
+}
+fitNumerals();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitNumerals);
+
+/* the scroll track is just height — its length falls out of the data */
+trackEl.style.height = (CAM_MAX * SCROLL_UNIT_VH + 100) + 'svh';
+
+/* ═══════════════════════════════════════════════════════════════════
+   4 · CAMERA — scroll drives one continuous position on the dolly axis.
+   ═══════════════════════════════════════════════════════════════════ */
+const maxScroll = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
+let target = 0, cam = 0, vel = 0, last = 0;
+let activeChapter = -1;
+
+function readScroll(){ target = clamp(scrollY / maxScroll() * CAM_MAX, 0, CAM_MAX); }
+function goToLayer(i){
+  const L = layers[clamp(i, 0, TOTAL - 1)];
+  scrollTo({ top: L.z / CAM_MAX * maxScroll(), behavior: reduced ? 'auto' : 'smooth' });
+}
+
+function setChapter(c){
+  if (c === activeChapter) return;
+  activeChapter = c;
+  titleEl.textContent = chapters[c].title;
+  descEl.textContent  = chapters[c].description;
+  /* restart the wipe */
+  copyEl.classList.remove('is-on'); void copyEl.offsetWidth; copyEl.classList.add('is-on');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   5 · RENDER
+   ═══════════════════════════════════════════════════════════════════ */
+function render(now){
+  const dt   = Math.min(48, now - last || 16.7); last = now;
+  const prev = cam;
+  cam += (target - cam) * (reduced ? 1 : 1 - Math.exp(-dt / TAU));
+  if (Math.abs(target - cam) < 0.00005) cam = target;
+  vel = (cam - prev) * (16.7 / dt);
+
+  /* ── depth stack ── */
+  for (let k = 0; k < TOTAL; k++){
+    const L   = layers[k];
+    const rel = L.z - cam;                 /* >0 ahead of camera, <0 passed */
+    const ad  = Math.abs(rel);
+
+    if (ad > CULL_RANGE){
+      if (L.visible){
+        L.visible = false;
+        L.el.style.visibility = 'hidden';
+        L.el.style.willChange = 'auto';   /* release the compositor layer */
+      }
+      if (L.playing){ L.playing = false; L.video.pause(); }
+      continue;
+    }
+    if (!L.visible){
+      L.visible = true;
+      L.el.style.visibility = 'visible';
+      L.el.style.willChange = 'transform, opacity';
+    }
+
+    /* Z: gentle recession ahead, accelerating rush past the camera behind */
+    const z = rel >= 0
+      ? -rel * FAR_UNIT
+      :  Math.pow(-rel, NEAR_EASE) * NEAR_UNIT;
+
+    /* the overscan in .layer-inner absorbs the perspective divide, so the
+       plane keeps covering the frame at every depth */
+    const opacity = rel >= 0 ? 1 : clamp(1 + rel / FADE_OUT, 0, 1);
+    const dim     = rel >= 0 ? (1 - DIM_FLOOR) * clamp(rel / DIM_DEPTH, 0, 1) : 0;
+
+    L.el.style.transform  = 'translate3d(0,0,' + z.toFixed(2) + 'px)';
+    L.el.style.opacity    = opacity.toFixed(3);
+    L.dim.style.opacity   = dim.toFixed(3);
+
+    const zi = Math.round(1000 - rel * 100);
+    if (zi !== L.zi){ L.zi = zi; L.el.style.zIndex = zi; }   /* restacking is not free */
+
+    /* ── video lifecycle ── */
+    if (!L.attached && ad <= LOAD_RANGE){
+      L.attached = true;
+      L.video.preload = 'auto';
+      L.video.src = L.src;
+    }
+    const shouldPlay = ad <= PLAY_RANGE && !L.failed && L.attached;
+    if (shouldPlay && !L.playing){
+      L.playing = true;
+      const pr = L.video.play();
+      if (pr && pr.catch) pr.catch(() => {});
+    } else if (!shouldPlay && L.playing){
+      L.playing = false;
+      L.video.pause();
+    }
   }
-  paintTitles();
 
-  /* ── dots ── */
-  dotsNav.innerHTML = Array.from({length:N}, (_,i) =>
-    `<button type="button" data-i="${i}" aria-label="Go to slide ${i+1}"><i></i></button>`).join('');
-  const dotBtns = [...dotsNav.querySelectorAll('button')];
-  dotBtns.forEach(b => b.addEventListener('click', () => goTo(+b.dataset.i)));
+  /* ── chapter coordinate ──
+     Holds steady at the active chapter for the whole traversal of its
+     videos, then ramps to the next one across the cut. The numerals and
+     the copy both key off this, so they can never disagree. */
+  const ci  = Math.min(CH - 1, Math.floor(cam));
+  const f   = cam - ci;
+  const gap = f > SPAN ? (f - SPAN) / (1 - SPAN) : 0;      /* 0 … 1 across the cut */
+  const chapterCam = ci + gap;
 
-  /* ── scroll model ── */
-  const maxScroll = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
-  const stepPx    = () => maxScroll() / (N - 1);
-  let target = 0, cur = 0, vel = 0, active = -1, raf = 0, last = 0, copyIdx = -1, copyOn = false;
-
-  function readScroll(){ target = clamp(scrollY / stepPx(), 0, N - 1); }
-  function goTo(i){ scrollTo({ top: i * stepPx(), behavior: reduced ? 'auto' : 'smooth' }); }
-
-  const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
-
-  /* ── per-frame render ── */
-  function render(now){
-    const dt   = Math.min(48, now - last || 16.7); last = now;
-    const prev = cur;
-    cur += (target - cur) * (reduced ? 1 : 1 - Math.exp(-dt / 92));
-    if (Math.abs(target - cur) < 0.0004) cur = target;
-    vel = (cur - prev) * (16.7 / dt);          /* per-frame velocity, fps-independent */
-
-    /* numerals: one uniform size, constant vertical rhythm, fill ⇄ outline crossfade */
-    const cs     = getComputedStyle(nums[0]);
-    const stride = parseFloat(cs.fontSize) * (parseFloat(cs.getPropertyValue('--num-stride')) || .94);
-    for (let i = 0; i < N; i++){
-      const d  = i - cur, ad = Math.abs(d);
-      const op   = clamp(1 / (1 + 0.9 * ad), 0, 1);
-      const fill = clamp(1 - 2 * ad, 0, 1);
-      const n = nums[i];
-      n.style.transform = `translate(-50%,-50%) translateY(${(d * stride).toFixed(2)}px)`;
-      n.style.opacity   = ad > 3.4 ? 0 : op.toFixed(3);
-      n.querySelector('.fill').style.opacity = fill.toFixed(3);
-      n.querySelector('.out').style.opacity  = (1 - fill * .92).toFixed(3);
-    }
-
-    /* cinematic: velocity-driven 3D swing */
-    if (stage.dataset.preset === 'cinematic'){
-      const v = clamp(vel * 9, -1, 1);
-      numerals.style.transform =
-        `perspective(1400px) rotateX(${(v * 13).toFixed(2)}deg) rotateZ(${(-v * 17).toFixed(2)}deg) scale(${(1 - Math.abs(v) * .06).toFixed(3)})`;
-    } else {
-      numerals.style.transform = '';
-    }
-
-    /* media: the incoming panel slides up over the settled one */
-    const zoomOn = swZoom.checked;
-    for (let i = 0; i < N; i++){
-      const t  = clamp(i - cur, 0, 1);        /* 1 = fully below, 0 = in place */
-      const bt = clamp(cur - i, 0, 1);        /* how far it has been passed    */
-      medias[i].style.transform = `translate3d(0, ${(t * 100).toFixed(3)}%, 0)`;
-      medias[i].style.zIndex = i;
-      medias[i].style.visibility = (t >= 1 || bt >= 1.02) ? 'hidden' : 'visible';
-      /* Ken Burns (optional) plus a slow drift on the panel being covered —
-         both scale up, so the frame is never uncovered at the edges. */
-      const kb  = zoomOn ? 1 + 0.045 * clamp(cur - i + 1, 0, 2) : 1;
-      const par = 1 + 0.06 * bt;
-      inners[i].style.transform = `scale(${(kb * par).toFixed(4)}) translate3d(0, ${(-bt * 2.5).toFixed(2)}%, 0)`;
-    }
-
-    /* indicators */
-    const p = cur / (N - 1);
-    railFill.style.height = (p * 100).toFixed(2) + '%';
-
-    /* active slide bookkeeping */
-    const a = Math.round(cur);
-    if (a !== active){
-      active = a;
-      dotBtns.forEach((b,i) => b.setAttribute('aria-current', i === a ? 'true' : 'false'));
-      railIdx.textContent = String(a + 1).padStart(2,'0') + ' — ' + String(N).padStart(2,'0');
-    }
-
-    /* the copy clears out mid-transition and wipes back in as the panel lands */
-    const settled = Math.abs(cur - a) < 0.3;
-    if (settled !== copyOn || (settled && a !== copyIdx)){
-      copyOn = settled; copyIdx = a;
-      blocks.forEach((b,i) => {
-        if (settled && i === a){ b.classList.remove('is-on'); void b.offsetWidth; b.classList.add('is-on'); }
-        else b.classList.remove('is-on');
-      });
-    }
-    raf = requestAnimationFrame(render);
+  /* ── chapter numerals: same rhythm + velocity-driven 3D swing ── */
+  for (let c = 0; c < CH; c++){
+    const d = c - chapterCam, ad = Math.abs(d);
+    const n = nums[c];
+    const fill = clamp(1 - 2 * ad, 0, 1);
+    n.style.transform = 'translate(-50%,-50%) translateY(' + (d * stride).toFixed(2) + 'px)';
+    n.style.opacity   = ad > 3.4 ? 0 : clamp(1 / (1 + 0.9 * ad), 0, 1).toFixed(3);
+    n.querySelector('.fill').style.opacity = fill.toFixed(3);
+    n.querySelector('.out').style.opacity  = (1 - fill * .92).toFixed(3);
   }
+  const v = clamp(vel * 9, -1, 1);
+  numerals.style.transform =
+    'perspective(1400px) rotateX(' + (v * 13).toFixed(2) + 'deg) rotateZ(' +
+    (-v * 17).toFixed(2) + 'deg) scale(' + (1 - Math.abs(v) * .06).toFixed(3) + ')';
 
-  addEventListener('scroll', readScroll, { passive:true });
-  addEventListener('resize', readScroll);
-  readScroll(); cur = target; raf = requestAnimationFrame(render);
+  /* ── chapter cut: dip through the gap between two project stacks ── */
+  cutFlash.style.opacity = (Math.sin(gap * Math.PI) * 0.34).toFixed(3);
 
-  /* ── keyboard ── */
-  addEventListener('keydown', e => {
-    const a = Math.round(cur);
-    if (e.key === 'ArrowDown' || e.key === 'PageDown'){ e.preventDefault(); goTo(clamp(a+1,0,N-1)); }
-    if (e.key === 'ArrowUp'   || e.key === 'PageUp'  ){ e.preventDefault(); goTo(clamp(a-1,0,N-1)); }
-    if (e.key === 'Home'){ e.preventDefault(); goTo(0); }
-    if (e.key === 'End' ){ e.preventDefault(); goTo(N-1); }
-  });
+  /* text swaps at the midpoint of the cut — the deepest point of the dip,
+     and exactly where the numeral crossfade hands over */
+  setChapter(clamp(gap > 0.5 ? ci + 1 : ci, 0, CH - 1));
 
-  /* ── control bar ── */
-  const presetBtn  = document.getElementById('presetBtn');
-  const titleBtn   = document.getElementById('titleBtn');
-  const contentBtn = document.getElementById('contentBtn');
-  const swDots     = document.getElementById('swDots');
-  const swRail     = document.getElementById('swRail');
-  const swBorder   = document.getElementById('swBorder');
+  /* ── rail: global position across every video in the reel ── */
+  railFill.style.transform = 'scaleY(' + (cam / CAM_MAX).toFixed(4) + ')';
+  let nearest = 0;
+  for (let k = 1; k < TOTAL; k++){
+    if (Math.abs(layers[k].z - cam) < Math.abs(layers[nearest].z - cam)) nearest = k;
+  }
+  const idxText = pad2(nearest + 1) + ' — ' + pad2(TOTAL);
+  if (railIdx.textContent !== idxText) railIdx.textContent = idxText;
 
-  const PRESETS = ['custom','cinematic','minimal'];
-  const PRESET_LABEL = { custom:'Custom', cinematic:'Cinematic', minimal:'Minimal' };
-  let preset = 0;
-  presetBtn.addEventListener('click', () => {
-    preset = (preset + 1) % PRESETS.length;
-    stage.dataset.preset = PRESETS[preset];
-    presetBtn.textContent = PRESET_LABEL[PRESETS[preset]];
-  });
+  requestAnimationFrame(render);
+}
 
-  titleBtn.addEventListener('click', () => {
-    titleMode = TITLES[(TITLES.indexOf(titleMode) + 1) % TITLES.length];
-    titleBtn.textContent = TITLE_LABEL[titleMode];
-    paintTitles();
-  });
+addEventListener('scroll', readScroll, { passive:true });
+addEventListener('resize', () => { readScroll(); measure(); fitNumerals(); });
+readScroll(); cam = target;
+setChapter(0);
+requestAnimationFrame(render);
 
-  const POS = [
-    ['top-left','Top-Left'], ['bottom-left','Bottom-Left'],
-    ['bottom-right','Bottom-Right'], ['centered','Centered']
-  ];
-  let pos = 0;
-  contentBtn.addEventListener('click', () => {
-    pos = (pos + 1) % POS.length;
-    stage.dataset.pos      = POS[pos][0];
-    contentBtn.textContent = POS[pos][1];
-  });
+/* ── keyboard: step between videos, not pixels ── */
+addEventListener('keydown', e => {
+  let nearest = 0;
+  for (let k = 1; k < TOTAL; k++){
+    if (Math.abs(layers[k].z - cam) < Math.abs(layers[nearest].z - cam)) nearest = k;
+  }
+  if (e.key === 'ArrowDown' || e.key === 'PageDown'){ e.preventDefault(); goToLayer(nearest + 1); }
+  if (e.key === 'ArrowUp'   || e.key === 'PageUp'  ){ e.preventDefault(); goToLayer(nearest - 1); }
+  if (e.key === 'Home'){ e.preventDefault(); goToLayer(0); }
+  if (e.key === 'End' ){ e.preventDefault(); goToLayer(TOTAL - 1); }
+});
 
-  swDots.addEventListener('change',   () => dotsNav.hidden = !swDots.checked);
-  swRail.addEventListener('change',   () => rail.hidden    = !swRail.checked);
-  swBorder.addEventListener('change', () => frame.hidden   = !swBorder.checked);
+/* ── camcorder HUD: recording timer ──
+   Derived from a fixed origin every tick rather than incremented, so it
+   cannot drift or be disturbed by scrolling. */
+const timerEl = document.getElementById('recTimer');
+const startedAt = performance.now();
+function tickTimer(){
+  const s = Math.max(0, Math.floor((performance.now() - startedAt) / 1000));
+  timerEl.textContent = pad2(Math.floor(s / 3600)) + ':' +
+                        pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60);
+}
+tickTimer();
+setInterval(tickTimer, 250);
 
-  /* ripple feedback, like the reference */
-  document.getElementById('hud').addEventListener('pointerdown', e => {
-    const host = e.target.closest('.grp'); if (!host) return;
-    const r = document.createElement('span');
-    r.className = 'ripple';
-    const b = host.getBoundingClientRect();
-    r.style.left = (e.clientX - b.left) + 'px';
-    r.style.top  = (e.clientY - b.top)  + 'px';
-    host.appendChild(r);
-    setTimeout(() => r.remove(), 620);
-  });
 })();
 </script>
 </body>
