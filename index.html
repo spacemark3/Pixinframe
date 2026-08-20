@@ -244,6 +244,7 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
   --hud-red:#ff3b30;
   /* enlarged HUD readouts — tuned down per breakpoint below */
   --rec-font:23px;   --rec-dot:18px;
+  --sound-font:15px; --sound-bar-h:15px;
   --timer-font:30px;
   --batt-w:66px; --batt-h:31px; --batt-border:3px; --batt-pad:4px; --batt-gap:4px;
   --batt-cap-w:6px;  --batt-cap-h:15px;
@@ -253,7 +254,7 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
 /* ── REC indicator (top-left) ── */
 .hud-top-left{
   position:absolute; left:var(--hud-pad); top:var(--hud-pad);
-  display:flex; align-items:center;
+  display:flex; align-items:center; gap:26px;
 }
 .rec-indicator{
   display:flex; align-items:center; gap:10px;
@@ -270,6 +271,39 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
   0%, 54% { opacity:1;   box-shadow:0 0 12px rgba(255,59,48,.55); }
   74%     { opacity:.34; box-shadow:0 0 0 rgba(255,59,48,0); }
   100%    { opacity:1;   box-shadow:0 0 12px rgba(255,59,48,.55); }
+}
+
+/* ── audio toggle (top-left, beside REC) ──
+   A browser only lets a playing video unmute off the back of a user
+   gesture, so this is a real button rather than an automatic behaviour.
+   Styled as a camcorder audio-level readout: three meter bars that only
+   animate while sound is live. ── */
+.hud-sound{
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--mono); font-size:var(--sound-font);
+  font-weight:700; letter-spacing:.2em; text-transform:uppercase; white-space:nowrap;
+  color:var(--hud-ink); opacity:.7;
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
+  transition:opacity .3s var(--ease), color .3s var(--ease);
+}
+.camcorder-hud .hud-sound{ pointer-events:auto; }
+.hud-sound:hover, .hud-sound:focus-visible{ opacity:1; }
+.hud-sound.is-on{ opacity:1; color:#fff; }
+
+.sound-meter{ display:flex; align-items:center; gap:2.5px; height:var(--sound-bar-h); }
+.sound-meter i{
+  display:block; width:2.5px; height:34%;
+  background:currentColor; opacity:.45;
+}
+.hud-sound.is-on .sound-meter i{
+  opacity:1;
+  animation:meter-bounce .62s var(--ease) infinite alternate;
+}
+.hud-sound.is-on .sound-meter i:nth-child(2){ animation-duration:.43s; }
+.hud-sound.is-on .sound-meter i:nth-child(3){ animation-duration:.79s; }
+@keyframes meter-bounce{
+  from{ transform:scaleY(.4); }
+  to  { transform:scaleY(2.8); }
 }
 
 /* ── "Nicola Lanta" page link + battery (top-right) ──
@@ -361,11 +395,14 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
   .camcorder-hud{
     --hud-pad:32px; --hud-arm:12px;
     --rec-font:17px; --rec-dot:14px;
+    --sound-font:11px; --sound-bar-h:11px;
     --timer-font:22px;
     --batt-w:50px; --batt-h:23px; --batt-border:2.2px; --batt-pad:3.2px; --batt-gap:3.2px;
     --batt-cap-w:4px; --batt-cap-h:10px;
   }
   .rec-indicator{ gap:7px; letter-spacing:.16em; }
+  .hud-top-left{ gap:16px; }
+  .hud-sound{ gap:6px; letter-spacing:.14em; }
   .hud-top-right{ gap:18px; }
   .depth-stack{ perspective:900px; }
   /* lift the copy off the numerals */
@@ -380,6 +417,7 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
   .content p{ font-size:13.5px; }
   .camcorder-hud{
     --rec-font:13px; --rec-dot:11px;
+    --sound-font:9px; --sound-bar-h:9px;
     --timer-font:17px;
     --batt-w:38px; --batt-h:18px; --batt-border:1.6px; --batt-pad:2.4px; --batt-gap:2.4px;
     --batt-cap-w:3px; --batt-cap-h:8px;
@@ -390,6 +428,7 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
 @media (prefers-reduced-motion: reduce){
   .content.is-on .reveal{ animation-duration:.01s; }
   .rec-dot{ animation:none; opacity:1; box-shadow:0 0 12px rgba(255,59,48,.55); }
+  .hud-sound.is-on .sound-meter i{ animation:none; transform:scaleY(1.6); }
   .scanlines::after{ animation:none; display:none; }
 }
 
@@ -437,6 +476,13 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
 <div class="camcorder-hud">
   <div class="hud-top-left">
     <div class="rec-indicator" aria-hidden="true"><span class="rec-dot"></span>REC</div>
+
+    <!-- real control: the reel starts muted because browsers require a
+         gesture before a playing video may unmute -->
+    <button class="hud-sound" id="soundToggle" type="button" aria-pressed="false">
+      <span class="sound-meter" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span id="soundLabel">Audio Off</span>
+    </button>
   </div>
 
   <div class="hud-top-right">
@@ -480,53 +526,60 @@ button{ font:inherit; color:inherit; background:none; border:0; padding:0; curso
    ═══════════════════════════════════════════════════════════════════ */
 const chapters = [
   {
+    title: "Guess",
+    description: "Black-and-white campaign film for the house — edit, grade and finishing on the final cut.",
+    videos: [
+      "assets/20251025_Guess_B%26W_v3.mp4"
+    ]
+  },
+  {
+    title: "Marciano Willem",
+    description: "Monochrome fashion piece for Marciano — filming and post through to the delivered edit.",
+    videos: [
+      "assets/20251025_Marciano_B%26W_1.mp4"
+    ]
+  },
+  {
     title: "Adidas",
-    description: "Edit for the AS Roma 25/26 kit launch — cut, grade pass and finishing for the campaign release.",
+    description: "Edit for the AS Roma 25/26 second kit launch — cut, grade pass and finishing for the campaign release.",
     videos: [
-      "videos/adidas-01.mp4",
-      "videos/adidas-02.mp4",
-      "videos/adidas-03.mp4"
+      "assets/20250616_Adidas%20Roma_2nd%20KIT_EDIT_16x9.mp4"
     ]
   },
   {
-    title: "Billboard Italy",
-    description: "Videomaker and editor across Billboard Italy's live events, including nights hosted by Adidas and AWLAB.",
+    title: "12AM",
+    description: "Pants — direction, final edit and sound design on the brand's street-fashion short film.",
     videos: [
-      "videos/billboard-01.mp4",
-      "videos/billboard-02.mp4"
+      "assets/20260508_12AM_Pants_FINAL.mp4"
     ]
   },
   {
-    title: "12AM Campaign",
-    description: "Direction, final edit and sound design on the brand's street-fashion short films.",
+    title: "D.A.W.G.",
+    description: "The THIR$TY merch launch and the San Siro director's cut — direction, filming and final edit.",
     videos: [
-      "videos/12am-01.mp4",
-      "videos/12am-02.mp4",
-      "videos/12am-03.mp4"
+      "assets/20240915_DAWGxTHIRSTY_EDIT_V1.mp4",
+      "assets/20240928_DAWG_SAN%20SIRO_EDIT_DIRECTORS%20CUT.mp4"
     ]
   },
   {
-    title: "THIR$TY × D.A.W.G.",
-    description: "The complete merch-launch campaign for the collective and the brand — direction, filming, final cut.",
+    title: "Fiamma Willem",
+    description: "Fashion film for Fiamma — production, filming and the complete edit.",
     videos: [
-      "videos/thirsty-01.mp4",
-      "videos/thirsty-02.mp4"
+      "assets/20260323_Fiamma_Willem_EDIT.mp4"
     ]
   },
   {
-    title: "Inter FC",
-    description: "Christmas in the Making — production and filming through to the entire edit.",
+    title: "Ydez3",
+    description: "Music-driven visual piece — shot and cut end to end.",
     videos: [
-      "videos/inter-01.mp4",
-      "videos/inter-02.mp4"
+      "assets/YDEZ3648.MP4"
     ]
   },
   {
-    title: "Illy Caffè",
-    description: "Coffee B — live-action production, filming and post, from concept to the final cut.",
+    title: "Progetto ADI",
+    description: "Intervista Guerriero — a 2'30\" documentary interview, from production to the final cut.",
     videos: [
-      "videos/illy-01.mp4",
-      "videos/illy-02.mp4"
+      "assets/202511222_Progetto%20ADI_2%2730-_Intervista%20Guerriero.mp4"
     ]
   }
 ];
@@ -544,11 +597,20 @@ const FADE_OUT      = 0.40;   /* depth over which a passed layer fades away   */
 const DIM_DEPTH     = 0.9;    /* depth at which a layer reaches full dimming  */
 const DIM_FLOOR     = 0.62;   /* darkest a receding layer gets                */
 const CULL_RANGE    = 1.05;   /* beyond this a layer is hidden entirely       */
-const PLAY_RANGE    = 0.85;   /* videos outside this are paused               */
-const LOAD_RANGE    = 1.7;    /* src is not attached until this close         */
+const NEVER_PAUSE   = true;   /* once a layer has loaded it keeps playing for
+                                 the life of the page — nothing ever stops    */
+const PLAY_RANGE    = 1.35;   /* only consulted when NEVER_PAUSE is false;
+                                 must exceed CULL_RANGE or a visible layer
+                                 could be found paused                        */
+const LOAD_RANGE    = 2.2;    /* src is attached this far out, so a layer is
+                                 buffered and running well before it is seen  */
 const SCROLL_UNIT_VH= 125;    /* viewport heights of scroll per depth unit    */
 const TAU           = 52;     /* inertia time constant, ms — higher = heavier */
 const SHOW_LABELS   = true;   /* placeholder captions when a video is missing */
+const AUDIO_FADE    = 0.55;   /* depth over which the focused layer's audio
+                                 fades up and away — only ever one layer is
+                                 audible, so chapters never talk over each other */
+const AUDIO_DUCK    = 0.9;    /* how far audio ducks through a chapter cut     */
 
 /* ═══════════════════════════════════════════════════════════════════
    3 · BUILD — flatten the data into one depth-sorted layer list.
@@ -692,6 +754,17 @@ function goToLayer(i){
   scrollTo({ top: L.z / CAM_MAX * maxScroll(), behavior: reduced ? 'auto' : 'smooth' });
 }
 
+/* the layer the camera is currently closest to — the reel's "focus", used
+   by the rail, by keyboard stepping and by the audio router */
+function nearestIndex(){
+  let n = 0, best = Math.abs(layers[0].z - cam);
+  for (let k = 1; k < TOTAL; k++){
+    const d = Math.abs(layers[k].z - cam);
+    if (d < best){ best = d; n = k; }
+  }
+  return n;
+}
+
 function setChapter(c){
   if (c === activeChapter) return;
   activeChapter = c;
@@ -702,7 +775,73 @@ function setChapter(c){
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   5 · RENDER
+   5 · AUDIO — one voice at a time.
+
+   Every layer plays muted so autoplay is never blocked. Three or four
+   of them are running at once, so unmuting the lot would stack their
+   soundtracks; instead only the focused layer is ever audible, its gain
+   riding the same distance the visuals do, and ducking through the cut
+   between chapters. Sound stays off until the viewer asks for it —
+   browsers require a gesture before a playing video may unmute.
+   ═══════════════════════════════════════════════════════════════════ */
+const soundBtn   = document.getElementById('soundToggle');
+const soundLabel = document.getElementById('soundLabel');
+let soundOn = false;
+
+function applyGain(L, g){
+  const v = L.video;
+  if (g > 0.002){
+    if (Math.abs(v.volume - g) > 0.01) v.volume = g;
+    if (v.muted) v.muted = false;
+  } else {
+    if (!v.muted) v.muted = true;
+    if (v.volume !== 0) v.volume = 0;
+  }
+}
+
+/* gain for the focused layer: fades with distance, dips across the cut */
+function focusGain(L, gap){
+  const ad = Math.abs(L.z - cam);
+  return clamp(1 - ad / AUDIO_FADE, 0, 1) *
+         (1 - Math.sin(gap * Math.PI) * AUDIO_DUCK);
+}
+
+function routeAudio(nearest, gap){
+  for (let k = 0; k < TOTAL; k++){
+    const L = layers[k];
+    const live = soundOn && k === nearest && L.playing && !L.failed;
+    applyGain(L, live ? focusGain(L, gap) : 0);
+  }
+}
+
+function setSound(on){
+  soundOn = on;
+  soundBtn.classList.toggle('is-on', on);
+  soundBtn.setAttribute('aria-pressed', String(on));
+  soundLabel.textContent = on ? 'Audio On' : 'Audio Off';
+
+  if (!on){
+    layers.forEach(L => applyGain(L, 0));
+    return;
+  }
+  /* unmute synchronously inside the gesture — Safari pauses a video that
+     is unmuted outside one, so this cannot wait for the next frame */
+  const k = nearestIndex();
+  const L = layers[k];
+  if (L && !L.failed && L.attached){
+    applyGain(L, Math.max(focusGain(L, 0), 0.05));
+    if (!L.playing){
+      L.playing = true;
+      const pr = L.video.play();
+      if (pr && pr.catch) pr.catch(() => {});
+    }
+  }
+}
+
+soundBtn.addEventListener('click', () => setSound(!soundOn));
+
+/* ═══════════════════════════════════════════════════════════════════
+   6 · RENDER
    ═══════════════════════════════════════════════════════════════════ */
 function render(now){
   const dt   = Math.min(48, now - last || 16.7); last = now;
@@ -717,13 +856,35 @@ function render(now){
     const rel = L.z - cam;                 /* >0 ahead of camera, <0 passed */
     const ad  = Math.abs(rel);
 
+    /* ── video lifecycle ──
+       Runs before the cull test on purpose: a layer must be able to load
+       and start while it is still off-camera, so that by the time it is
+       visible it is already running rather than spinning up. */
+    if (!L.attached && ad <= LOAD_RANGE){
+      L.attached = true;
+      L.video.preload = 'auto';
+      L.video.src = L.src;
+    }
+    const shouldPlay = (NEVER_PAUSE || ad <= PLAY_RANGE) && !L.failed && L.attached;
+    if (shouldPlay && !L.playing){
+      L.playing = true;
+      const pr = L.video.play();
+      if (pr && pr.catch) pr.catch(() => {});
+    } else if (!shouldPlay && L.playing){
+      L.playing = false;
+      L.video.pause();
+    }
+
     if (ad > CULL_RANGE){
       if (L.visible){
         L.visible = false;
         L.el.style.visibility = 'hidden';
         L.el.style.willChange = 'auto';   /* release the compositor layer */
       }
-      if (L.playing){ L.playing = false; L.video.pause(); }
+      /* the element is hidden, so the browser already de-prioritises its
+         decode — but the video itself keeps running, so scrolling back
+         never lands on a stalled or black frame */
+      if (!NEVER_PAUSE && L.playing){ L.playing = false; L.video.pause(); }
       continue;
     }
     if (!L.visible){
@@ -748,22 +909,6 @@ function render(now){
 
     const zi = Math.round(1000 - rel * 100);
     if (zi !== L.zi){ L.zi = zi; L.el.style.zIndex = zi; }   /* restacking is not free */
-
-    /* ── video lifecycle ── */
-    if (!L.attached && ad <= LOAD_RANGE){
-      L.attached = true;
-      L.video.preload = 'auto';
-      L.video.src = L.src;
-    }
-    const shouldPlay = ad <= PLAY_RANGE && !L.failed && L.attached;
-    if (shouldPlay && !L.playing){
-      L.playing = true;
-      const pr = L.video.play();
-      if (pr && pr.catch) pr.catch(() => {});
-    } else if (!shouldPlay && L.playing){
-      L.playing = false;
-      L.video.pause();
-    }
   }
 
   /* ── chapter coordinate ──
@@ -799,10 +944,11 @@ function render(now){
 
   /* ── rail: global position across every video in the reel ── */
   railFill.style.transform = 'scaleY(' + (cam / CAM_MAX).toFixed(4) + ')';
-  let nearest = 0;
-  for (let k = 1; k < TOTAL; k++){
-    if (Math.abs(layers[k].z - cam) < Math.abs(layers[nearest].z - cam)) nearest = k;
-  }
+  const nearest = nearestIndex();
+
+  /* ── audio: one voice at a time, ducked through the cut ── */
+  routeAudio(nearest, gap);
+
   const idxText = pad2(nearest + 1) + ' — ' + pad2(TOTAL);
   if (railIdx.textContent !== idxText) railIdx.textContent = idxText;
 
@@ -817,15 +963,34 @@ requestAnimationFrame(render);
 
 /* ── keyboard: step between videos, not pixels ── */
 addEventListener('keydown', e => {
-  let nearest = 0;
-  for (let k = 1; k < TOTAL; k++){
-    if (Math.abs(layers[k].z - cam) < Math.abs(layers[nearest].z - cam)) nearest = k;
-  }
+  const nearest = nearestIndex();
   if (e.key === 'ArrowDown' || e.key === 'PageDown'){ e.preventDefault(); goToLayer(nearest + 1); }
   if (e.key === 'ArrowUp'   || e.key === 'PageUp'  ){ e.preventDefault(); goToLayer(nearest - 1); }
   if (e.key === 'Home'){ e.preventDefault(); goToLayer(0); }
   if (e.key === 'End' ){ e.preventDefault(); goToLayer(TOTAL - 1); }
+  if (e.key === 'm' || e.key === 'M'){ e.preventDefault(); setSound(!soundOn); }
 });
+
+/* ── playback watchdog ──
+   A browser may pause media on its own: a backgrounded tab, a hidden
+   element, a decoder under pressure, a network stall. Nothing in the
+   render loop would notice, because the loop only calls play() on the
+   transition into range. This sweeps once a second and restarts anything
+   that should be running but is not — cheap insurance against the reel
+   quietly freezing. */
+function resumeAll(){
+  for (let k = 0; k < TOTAL; k++){
+    const L = layers[k];
+    if (!L.attached || L.failed || !L.playing) continue;
+    if (L.video.paused || L.video.ended){
+      const pr = L.video.play();
+      if (pr && pr.catch) pr.catch(() => {});
+    }
+  }
+}
+setInterval(resumeAll, 1000);
+addEventListener('visibilitychange', () => { if (!document.hidden) resumeAll(); });
+addEventListener('pageshow', resumeAll);
 
 /* ── camcorder HUD: recording timer ──
    Derived from a fixed origin every tick rather than incremented, so it

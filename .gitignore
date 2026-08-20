@@ -1,0 +1,19 @@
+# ── media ──────────────────────────────────────────────────────────
+# Source video is deliberately NOT tracked. These are delivery masters
+# (16-64 Mbps, up to 2 GB each); Git stores them as opaque blobs with no
+# delta compression, history is immutable so they could never be removed
+# later, and GitHub rejects any single file over 100 MB on push.
+#
+# The videos live in assets/ locally and are uploaded to the host / CDN
+# separately. index.html references them by relative path either way.
+assets/*.mp4
+assets/*.MP4
+assets/*.mov
+assets/*.MOV
+assets/web/
+
+# ── os / editor cruft ──────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
