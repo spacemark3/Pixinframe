@@ -1,0 +1,420 @@
+/* ───────────────────────────── tokens ───────────────────────────── */
+@property --wipe { syntax: '<number>'; inherits: true; initial-value: 1; }
+
+:root{
+  --num-size: min(17.7vw, 21.1vh);
+  --num-stride: .94;
+  --num-lift: .0766em;
+  --num-ink: #fff;
+  --num-line: rgba(255,255,255,.62);
+  --num-squeeze: .728;
+  --scrim: .58;
+  --vignette: .68;
+  --pad-x: 32px;
+  --ease: cubic-bezier(.22,.61,.24,1);
+  --serif: "Playfair Display", "Times New Roman", Georgia, serif;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+html{ scrollbar-width:none; background:#0b0a09; }
+html::-webkit-scrollbar{ width:0; height:0; }
+body{
+  margin:0; background:#0b0a09; color:#fff;
+  font-family:var(--sans); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  overscroll-behavior-y:none;
+}
+button{ font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
+:focus-visible{ outline:1px solid rgba(255,255,255,.8); outline-offset:3px; border-radius:2px; }
+
+/* ─────────────────── scroll track (drives the dolly) ─────────────────── */
+.track{ position:relative; z-index:0; }
+
+/* ───────────────────────────── stage ───────────────────────────── */
+.stage{
+  position:fixed; inset:0; z-index:1; overflow:hidden;
+  background:#0b0a09;
+}
+
+/* ═══════════════════════ 3D depth stack ═══════════════════════
+   One .layer per video. JS drives translate3d Z + scale so the
+   camera dollies THROUGH the stack. No cards, no borders — every
+   layer is full-bleed media, overscanned so a receding layer never
+   uncovers the viewport edge.
+   ────────────────────────────────────────────────────────────── */
+.depth-stack{
+  position:absolute; inset:0; z-index:0;
+  perspective:1200px;
+  transform-style:preserve-3d;
+}
+.layer{
+  position:absolute; inset:0;
+  transform-origin:50% 50%;
+  backface-visibility:hidden;
+}
+.layer-inner{
+  /* overscan: the media is larger than the viewport, so a layer pushed
+     back by perspective still covers every edge */
+  position:absolute; inset:-11%;
+  /* cinematic media treatment — constant, so the filter is rasterised
+     once and cached rather than re-rendered every frame */
+  filter:contrast(1.12) saturate(.86) brightness(.94);
+}
+/* depth dimming rides on opacity, which the compositor handles alone */
+.layer-dim{
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  background:#070706; opacity:0;
+}
+.layer video, .layer .ph{
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:cover; display:block;
+}
+.layer video{ z-index:1; }
+.layer.no-video video{ display:none; }
+
+/* procedural placeholder — also the graceful fallback when a video 404s */
+.ph{
+  background:
+    radial-gradient(120% 90% at 22% 12%, rgba(255,255,255,.10), transparent 60%),
+    linear-gradient(168deg, var(--ph1) 0%, var(--ph2) 58%, var(--ph3) 100%);
+}
+.ph::before{
+  content:""; position:absolute; inset:0; opacity:.28;
+  background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 1px, transparent 1px 26px);
+}
+.ph-tag{
+  position:absolute; left:50%; top:21%; transform:translateX(-50%); z-index:2;
+  font-family:var(--mono);
+  font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; white-space:nowrap;
+  color:rgba(255,255,255,.34);
+  border:1px solid rgba(255,255,255,.14); border-radius:999px;
+  padding:5px 12px;
+}
+.layer:not(.no-video) .ph-tag{ display:none; }
+
+/* one global scrim over the whole stack — never stacks up per layer */
+.scrim{
+  position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.15) 34%, rgba(0,0,0,.35));
+  opacity:var(--scrim);
+}
+
+/* chapter cut — a short tape-dip between project stacks */
+.cut-flash{
+  position:absolute; inset:0; z-index:2; pointer-events:none;
+  opacity:0; background:#080807;
+}
+.cut-flash::after{
+  content:""; position:absolute; left:0; right:0; top:50%; height:1px;
+  background:rgba(255,255,255,.5);
+}
+
+/* ── grain + vignette ── */
+.grain,.vignette{ position:absolute; inset:0; pointer-events:none; z-index:3; }
+.grain{
+  opacity:.055; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+}
+.vignette{
+  background:radial-gradient(115% 88% at 50% 46%, transparent 42%, rgba(0,0,0,.85) 100%);
+  opacity:var(--vignette);
+}
+
+/* ── chapter numerals ── */
+.numerals{
+  position:absolute; inset:0; pointer-events:none; z-index:4;
+  transform-style:preserve-3d;
+  will-change:transform;
+}
+.num{
+  position:absolute; left:50%; top:50%;
+  font-family:var(--serif); font-weight:400; line-height:.86;
+  font-size:var(--num-size); letter-spacing:-.012em; white-space:nowrap;
+  transform-origin:50% 50%;
+  will-change:transform,opacity;
+}
+.num-squeeze{ display:block; transform:translateY(calc(var(--num-lift) * -1)) scaleX(var(--num-squeeze)); transform-origin:50% 50%; }
+.num span.layer{ display:block; grid-area:1/1; position:static; inset:auto; }
+.num-stack{ display:grid; }
+.num .fill{ color:var(--num-ink); text-shadow:0 6px 44px rgba(0,0,0,.42); }
+.num .out{
+  color:transparent;
+  -webkit-text-stroke:1.15px var(--num-line);
+  text-stroke:1.15px var(--num-line);
+}
+
+/* ── editorial content block ── */
+.content-layer{ position:absolute; inset:0; pointer-events:none; z-index:5; }
+/* CONTENT placement — bottom-left, permanently */
+.content{
+  position:absolute; left:var(--pad-x); bottom:56px; width:min(430px, 62vw);
+  opacity:0; visibility:hidden; pointer-events:none;
+}
+.content.is-on{ opacity:1; visibility:visible; pointer-events:auto; }
+
+.content h1{
+  font-family:var(--serif); font-weight:400;
+  font-size:clamp(26px, 3.29vw, 42px); line-height:1.08; letter-spacing:-.015em;
+  margin:0; color:#fff;
+}
+.rule{ width:62px; height:1px; background:rgba(255,255,255,.55); margin:18px 0 17px; }
+.content p{
+  margin:0; font-size:15px; line-height:24px; font-weight:300;
+  color:rgba(255,255,255,.76);
+}
+.cta{
+  display:inline-flex; align-items:center; justify-content:center;
+  margin-top:17px; height:36px; padding:0 21px;
+  border:1px solid rgba(255,255,255,.5); border-radius:999px;
+  font-size:11px; font-weight:400; letter-spacing:.18em; text-transform:uppercase;
+  color:#fff; text-decoration:none; white-space:nowrap;
+  transition:background .35s var(--ease), color .35s var(--ease), border-color .35s var(--ease);
+}
+.cta:hover{ background:#fff; color:#111; border-color:#fff; }
+
+/* wipe reveal (a hairline sweeps left→right, uncovering the line) */
+.reveal{ position:relative; }
+.content.is-on .reveal{ animation:wipe .78s var(--ease) both; }
+.content.is-on h1.reveal{ animation-delay:.02s; }
+.content.is-on .rule-wrap.reveal{ animation-delay:.12s; }
+.content.is-on p.reveal{ animation-delay:.19s; }
+.content.is-on .cta-wrap.reveal{ animation-delay:.3s; }
+@keyframes wipe{
+  from{ --wipe:0; opacity:.001; }
+  6%  { opacity:1; }
+  to  { --wipe:1; opacity:1; }
+}
+.reveal{ clip-path:inset(-.35em calc((1 - var(--wipe)) * 100%) -.28em -.2em); }
+.reveal::after{
+  content:""; position:absolute; top:-.32em; bottom:-.26em;
+  left:calc(var(--wipe) * 100%); width:1px;
+  background:rgba(255,255,255,.9);
+  opacity:calc(1 - var(--wipe));
+}
+.content:not(.is-on) .reveal::after{ display:none; }
+
+/* ── progress rail (right) — global position across the whole reel ── */
+.rail{
+  position:absolute; right:26px; top:50%; transform:translateY(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:14px; z-index:6;
+}
+.rail-line{ position:relative; width:1px; height:30vh; background:rgba(255,255,255,.2); }
+.rail-fill{
+  position:absolute; left:-.25px; top:0; width:1.5px; height:100%;
+  background:#fff;
+  transform:scaleY(0); transform-origin:50% 0;
+}
+.rail-idx{
+  font-size:9.5px; letter-spacing:.22em; color:rgba(255,255,255,.62);
+  writing-mode:vertical-rl; font-variant-numeric:tabular-nums;
+}
+
+/* ── inset border — always on ── */
+.frame{
+  position:absolute; inset:14px; border:1px solid rgba(255,255,255,.28);
+  border-radius:3px; pointer-events:none; z-index:7;
+}
+
+/* ══════════════════════════ camcorder HUD ══════════════════════════
+   Viewfinder overlay: REC light, running timer, battery, framing
+   brackets and the scanline texture. Entirely self-contained.
+   ─────────────────────────────────────────────────────────────────── */
+.camcorder-hud{
+  position:fixed; inset:0; z-index:8;
+  pointer-events:none;
+  font-family:var(--mono);
+  --hud-pad:42px;
+  --hud-arm:20px;
+  --hud-ink:rgba(255,255,255,.82);
+  --hud-red:#ff3b30;
+  /* enlarged HUD readouts — tuned down per breakpoint below */
+  --rec-font:23px;   --rec-dot:18px;
+  --sound-font:15px; --sound-bar-h:15px;
+  --timer-font:30px;
+  --batt-w:66px; --batt-h:31px; --batt-border:3px; --batt-pad:4px; --batt-gap:4px;
+  --batt-cap-w:6px;  --batt-cap-h:15px;
+}
+.camcorder-hud *{ pointer-events:none; }
+
+/* ── REC indicator (top-left) ── */
+.hud-top-left{
+  position:absolute; left:var(--hud-pad); top:var(--hud-pad);
+  display:flex; align-items:center; gap:26px;
+}
+.rec-indicator{
+  display:flex; align-items:center; gap:10px;
+  font-size:var(--rec-font); font-weight:700; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--hud-ink);
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
+}
+.rec-dot{
+  width:var(--rec-dot); height:var(--rec-dot); border-radius:50%;
+  background:var(--hud-red);
+  animation:rec-pulse 1.4s var(--ease) infinite;
+}
+@keyframes rec-pulse{
+  0%, 54% { opacity:1;   box-shadow:0 0 12px rgba(255,59,48,.55); }
+  74%     { opacity:.34; box-shadow:0 0 0 rgba(255,59,48,0); }
+  100%    { opacity:1;   box-shadow:0 0 12px rgba(255,59,48,.55); }
+}
+
+/* ── audio toggle (top-left, beside REC) ──
+   A browser only lets a playing video unmute off the back of a user
+   gesture, so this is a real button rather than an automatic behaviour.
+   Styled as a camcorder audio-level readout: three meter bars that only
+   animate while sound is live. ── */
+.hud-sound{
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--mono); font-size:var(--sound-font);
+  font-weight:700; letter-spacing:.2em; text-transform:uppercase; white-space:nowrap;
+  color:var(--hud-ink); opacity:.7;
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
+  transition:opacity .3s var(--ease), color .3s var(--ease);
+}
+.camcorder-hud .hud-sound{ pointer-events:auto; }
+.hud-sound:hover, .hud-sound:focus-visible{ opacity:1; }
+.hud-sound.is-on{ opacity:1; color:#fff; }
+
+.sound-meter{ display:flex; align-items:center; gap:2.5px; height:var(--sound-bar-h); }
+.sound-meter i{
+  display:block; width:2.5px; height:34%;
+  background:currentColor; opacity:.45;
+}
+.hud-sound.is-on .sound-meter i{
+  opacity:1;
+  animation:meter-bounce .62s var(--ease) infinite alternate;
+}
+.hud-sound.is-on .sound-meter i:nth-child(2){ animation-duration:.43s; }
+.hud-sound.is-on .sound-meter i:nth-child(3){ animation-duration:.79s; }
+@keyframes meter-bounce{
+  from{ transform:scaleY(.4); }
+  to  { transform:scaleY(2.8); }
+}
+
+/* ── "Nicola Lanta" page link + battery (top-right) ──
+   Styled identically to .rec-indicator — same font-size, weight,
+   letter-spacing and text-shadow — so it reads as a matching HUD
+   readout in the accent red. A real link to a separate page, not an
+   overlay trigger. ── */
+.hud-top-right{
+  position:absolute; right:var(--hud-pad); top:var(--hud-pad);
+  display:flex; align-items:center; gap:28px;
+}
+.hud-page-link{
+  font-family:var(--mono); font-size:var(--rec-font); font-weight:700;
+  letter-spacing:.2em; text-transform:uppercase; white-space:nowrap;
+  color:var(--hud-red); text-decoration:none;
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
+  opacity:.94;
+  transition:opacity .3s var(--ease), color .3s var(--ease);
+}
+.camcorder-hud .hud-page-link{ pointer-events:auto; }
+.hud-page-link:hover, .hud-page-link:focus-visible{ opacity:1; color:#ff6a60; }
+
+/* Change data-level to 3 / 2 / 1 / 0 and that many segments stay lit. */
+.battery-indicator{
+  display:flex; align-items:center; gap:4px;
+  opacity:.9;
+}
+.battery-body{
+  display:flex; align-items:stretch; gap:var(--batt-gap);
+  width:var(--batt-w); height:var(--batt-h); padding:var(--batt-pad);
+  border:var(--batt-border) solid rgba(255,255,255,.6); border-radius:3px;
+}
+.battery-segment{ flex:1; background:rgba(255,255,255,.16); }
+.battery-indicator[data-level="1"] .battery-segment:nth-child(-n+1),
+.battery-indicator[data-level="2"] .battery-segment:nth-child(-n+2),
+.battery-indicator[data-level="3"] .battery-segment:nth-child(-n+3),
+.battery-indicator[data-level="4"] .battery-segment:nth-child(-n+4){
+  background:rgba(255,255,255,.8);
+}
+.battery-cap{
+  width:var(--batt-cap-w); height:var(--batt-cap-h); border-radius:0 2px 2px 0;
+  background:rgba(255,255,255,.6);
+}
+
+/* ── recording timer (bottom-right) ── */
+.recording-timer{
+  position:absolute; right:var(--hud-pad); bottom:var(--hud-pad);
+  font-size:var(--timer-font); font-weight:500; letter-spacing:.1em;
+  font-variant-numeric:tabular-nums;
+  color:rgba(255,255,255,.68);
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
+}
+
+/* ── viewfinder brackets — sit on the corners of the existing .frame ── */
+.viewfinder{ position:absolute; inset:14px; }
+.viewfinder-corner{
+  position:absolute; width:var(--hud-arm); height:var(--hud-arm);
+  border:1px solid rgba(255,255,255,.72);
+}
+.viewfinder-corner.tl{ top:0;    left:0;  border-right:0; border-bottom:0; }
+.viewfinder-corner.tr{ top:0;    right:0; border-left:0;  border-bottom:0; }
+.viewfinder-corner.bl{ bottom:0; left:0;  border-right:0; border-top:0;    }
+.viewfinder-corner.br{ bottom:0; right:0; border-left:0;  border-top:0;    }
+
+/* ── scanlines / CRT texture ── */
+.scanlines{
+  position:absolute; inset:0; opacity:.55;
+  background:repeating-linear-gradient(180deg,
+    rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
+}
+.scanlines::after{
+  content:""; position:absolute; left:0; right:0; top:0; height:26%;
+  background:linear-gradient(180deg,
+    transparent, rgba(255,255,255,.05) 48%, transparent);
+  will-change:transform;
+  animation:head-drift 9s linear infinite;
+}
+/* transform, not `top` — `top` relayouts the full-screen band every frame */
+@keyframes head-drift{
+  from{ transform:translateY(-110%); }
+  to  { transform:translateY(400%); }
+}
+
+/* ── responsive ── */
+@media (max-width: 900px){
+  :root{ --pad-x:20px; --num-size:min(23vw, 17vh); }
+  .content{ width:min(430px, 80vw); }
+  .rail{ right:14px; }
+  .camcorder-hud{
+    --hud-pad:32px; --hud-arm:12px;
+    --rec-font:17px; --rec-dot:14px;
+    --sound-font:11px; --sound-bar-h:11px;
+    --timer-font:22px;
+    --batt-w:50px; --batt-h:23px; --batt-border:2.2px; --batt-pad:3.2px; --batt-gap:3.2px;
+    --batt-cap-w:4px; --batt-cap-h:10px;
+  }
+  .rec-indicator{ gap:7px; letter-spacing:.16em; }
+  .hud-top-left{ gap:16px; }
+  .hud-sound{ gap:6px; letter-spacing:.14em; }
+  .hud-top-right{ gap:18px; }
+  .depth-stack{ perspective:900px; }
+  /* lift the copy off the numerals */
+  .stage::before{
+    content:""; position:absolute; inset:38% 0 0 0; z-index:4; pointer-events:none;
+    background:linear-gradient(180deg, transparent, rgba(0,0,0,.5) 55%, rgba(0,0,0,.82));
+  }
+}
+@media (max-width: 560px){
+  :root{ --num-size:min(26vw, 16vh); }
+  .content h1{ font-size:26px; }
+  .content p{ font-size:13.5px; }
+  .camcorder-hud{
+    --rec-font:13px; --rec-dot:11px;
+    --sound-font:9px; --sound-bar-h:9px;
+    --timer-font:17px;
+    --batt-w:38px; --batt-h:18px; --batt-border:1.6px; --batt-pad:2.4px; --batt-gap:2.4px;
+    --batt-cap-w:3px; --batt-cap-h:8px;
+  }
+  .hud-top-right{ gap:12px; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .content.is-on .reveal{ animation-duration:.01s; }
+  .rec-dot{ animation:none; opacity:1; box-shadow:0 0 12px rgba(255,59,48,.55); }
+  .hud-sound.is-on .sound-meter i{ animation:none; transform:scaleY(1.6); }
+  .scanlines::after{ animation:none; display:none; }
+}
