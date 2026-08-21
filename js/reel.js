@@ -13,43 +13,35 @@ const chapters = [
     title: "Guess",
     description: "Black-and-white campaign film for the house — edit, grade and finishing on the final cut.",
     videos: [
-      "assets/20251025_Guess_B%26W_v3.mp4"
+      "assets/Guess.mp4"
     ]
   },
   {
-    title: "Marciano Willem",
+    title: "Marciano",
     description: "Monochrome fashion piece for Marciano — filming and post through to the delivered edit.",
     videos: [
-      "assets/20251025_Marciano_B%26W_1.mp4"
+      "assets/Marciano.mp4"
     ]
   },
   {
     title: "Adidas",
     description: "Edit for the AS Roma 25/26 second kit launch — cut, grade pass and finishing for the campaign release.",
     videos: [
-      "assets/20250616_Adidas%20Roma_2nd%20KIT_EDIT_16x9.mp4"
+      "assets/Adidas.mp4"
     ]
   },
   {
     title: "12AM",
     description: "Pants — direction, final edit and sound design on the brand's street-fashion short film.",
     videos: [
-      "assets/20260508_12AM_Pants_FINAL.mp4"
+      "assets/12AM.mp4"
     ]
   },
   {
     title: "D.A.W.G.",
     description: "The THIR$TY merch launch and the San Siro director's cut — direction, filming and final edit.",
     videos: [
-      "assets/20240915_DAWGxTHIRSTY_EDIT_V1.mp4",
-      "assets/20240928_DAWG_SAN%20SIRO_EDIT_DIRECTORS%20CUT.mp4"
-    ]
-  },
-  {
-    title: "Fiamma Willem",
-    description: "Fashion film for Fiamma — production, filming and the complete edit.",
-    videos: [
-      "assets/20260323_Fiamma_Willem_EDIT.mp4"
+      "assets/DAWG.mp4",
     ]
   },
   {
@@ -63,7 +55,7 @@ const chapters = [
     title: "Progetto ADI",
     description: "Intervista Guerriero — a 2'30\" documentary interview, from production to the final cut.",
     videos: [
-      "assets/202511222_Progetto%20ADI_2%2730-_Intervista%20Guerriero.mp4"
+      "assets/ADI_intervista.mp4"
     ]
   }
 ];
@@ -71,7 +63,7 @@ const chapters = [
 /* ═══════════════════════════════════════════════════════════════════
    2 · TUNING — feel, not content.
    ═══════════════════════════════════════════════════════════════════ */
-const SPAN          = 0.86;   /* share of a chapter slot spent traversing its
+const SPAN          = 0.00;   /* share of a chapter slot spent traversing its
                                  videos; the remaining 0.14 is the chapter cut */
 const PERSP         = 1200;   /* must match .depth-stack perspective          */
 const FAR_UNIT      = 240;    /* px pushed back per unit of depth ahead       */
@@ -81,7 +73,7 @@ const FADE_OUT      = 0.40;   /* depth over which a passed layer fades away   */
 const DIM_DEPTH     = 0.9;    /* depth at which a layer reaches full dimming  */
 const DIM_FLOOR     = 0.62;   /* darkest a receding layer gets                */
 const CULL_RANGE    = 1.05;   /* beyond this a layer is hidden entirely       */
-const NEVER_PAUSE   = true;   /* once a layer has loaded it keeps playing for
+const NEVER_PAUSE   = false;   /* once a layer has loaded it keeps playing for
                                  the life of the page — nothing ever stops    */
 const PLAY_RANGE    = 1.35;   /* only consulted when NEVER_PAUSE is false;
                                  must exceed CULL_RANGE or a visible layer
