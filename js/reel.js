@@ -38,20 +38,6 @@ const chapters = [
     ]
   },
   {
-    title: "D.A.W.G.",
-    description: "The THIR$TY merch launch and the San Siro director's cut — direction, filming and final edit.",
-    videos: [
-      "assets/DAWG.mp4",
-    ]
-  },
-  {
-    title: "Ydez3",
-    description: "Music-driven visual piece — shot and cut end to end.",
-    videos: [
-      "assets/YDEZ3648.MP4"
-    ]
-  },
-  {
     title: "Progetto ADI",
     description: "Intervista Guerriero — a 2'30\" documentary interview, from production to the final cut.",
     videos: [
