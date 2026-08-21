@@ -1,15 +1,7 @@
 # ── media ──────────────────────────────────────────────────────────
-# Source video is deliberately NOT tracked. These are delivery masters
-# (16-64 Mbps, up to 2 GB each); Git stores them as opaque blobs with no
-# delta compression, history is immutable so they could never be removed
-# later, and GitHub rejects any single file over 100 MB on push.
-#
-# The videos live in assets/ locally and are uploaded to the host / CDN
-# separately. index.html references them by relative path either way.
-assets/*.mp4
-assets/*.MP4
-assets/*.mov
-assets/*.MOV
+# Videos are tracked via Git LFS (see .gitattributes) instead of being
+# ignored, so delivery masters can be pushed to GitHub despite the
+# 100 MB per-file limit on regular blobs.
 assets/web/
 
 # ── os / editor cruft ──────────────────────────────────────────────
